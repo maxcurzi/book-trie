@@ -1,3 +1,4 @@
+use regex::Regex;
 /// Extracts words from a sentence which may be terminated by a full-stop
 pub(crate) fn extract_words(sentence: &str) -> std::str::SplitWhitespace<'_> {
     sentence.trim_end_matches('.').split_whitespace()
@@ -5,7 +6,8 @@ pub(crate) fn extract_words(sentence: &str) -> std::str::SplitWhitespace<'_> {
 
 /// Extract sentences from a text. Sentences are simply terminated by a full-stop.
 pub(crate) fn extract_sentences(text: &str) -> Vec<&str> {
-    text.split('.')
+    let re = Regex::new(r"[\.\?!]+").unwrap();
+    re.split(text)
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .collect()
@@ -53,10 +55,11 @@ Why does the lamb love Mary so? The eager children cry; Why, Mary loves the lamb
 
     #[test]
     fn test_extract_sentences_with_ellipses() {
-        let text = "I would like to come... But I don't want to!";
+        let text = "I would like to come... But I don't want to! If only I could fly ?";
         let sentences = extract_sentences(text);
         let mut sentences_iter = sentences.iter();
         assert_eq!(sentences_iter.next().unwrap(), &"I would like to come");
-        assert_eq!(sentences_iter.next().unwrap(), &"But I don't want to!");
+        assert_eq!(sentences_iter.next().unwrap(), &"But I don't want to");
+        assert_eq!(sentences_iter.next().unwrap(), &"If only I could fly");
     }
 }
