@@ -1,14 +1,18 @@
-use std::collections::HashMap;
-
+use std::{collections::HashMap, fmt::Display, io::Write};
+/// A node in a trie.
 #[derive(Debug, Clone)]
-struct Node<T> {
-    element: Option<T>,
-    count: usize,
-    children: Option<HashMap<T, Node<T>>>,
+pub(crate) struct Node<T> {
+    /// The element stored in this node.
+    pub(crate) element: Option<T>,
+    /// The number of times this element has been seen.
+    pub(crate) count: usize,
+    /// The children of this node.
+    pub(crate) children: Option<HashMap<T, Node<T>>>,
 }
 
-impl<T: Eq + std::hash::Hash + Clone + Copy + std::fmt::Display> Node<T> {
-    fn new() -> Self {
+impl<T: Eq + std::hash::Hash + Clone + Copy + std::fmt::Debug + std::fmt::Display> Node<T> {
+    /// Create a new node.
+    pub(crate) fn new() -> Self {
         Node {
             element: None,
             count: 0,
@@ -16,7 +20,8 @@ impl<T: Eq + std::hash::Hash + Clone + Copy + std::fmt::Display> Node<T> {
         }
     }
 
-    fn add_sentence<I>(&mut self, sentence: I)
+    /// Add a sentence to the trie.
+    pub(crate) fn add_sentence<I>(&mut self, sentence: I)
     where
         I: IntoIterator<Item = T>,
     {
@@ -25,7 +30,7 @@ impl<T: Eq + std::hash::Hash + Clone + Copy + std::fmt::Display> Node<T> {
             let mut node = self
                 .children
                 .get_or_insert_with(HashMap::new)
-                .entry(word.clone())
+                .entry(word)
                 .or_insert_with(|| Node {
                     element: Some(word),
                     count: 0,
@@ -36,7 +41,7 @@ impl<T: Eq + std::hash::Hash + Clone + Copy + std::fmt::Display> Node<T> {
                 node = node
                     .children
                     .get_or_insert_with(HashMap::new)
-                    .entry(next_word.clone())
+                    .entry(next_word)
                     .or_insert_with(|| Node {
                         element: Some(next_word),
                         count: 0,
@@ -47,19 +52,13 @@ impl<T: Eq + std::hash::Hash + Clone + Copy + std::fmt::Display> Node<T> {
         }
     }
 
-    fn get_child(&self, element: &T) -> Option<&Node<T>> {
-        self.children
-            .as_ref()
-            .and_then(|children| children.get(element))
-    }
-
-    fn get_child_mut(&mut self, element: &T) -> Option<&mut Node<T>> {
-        self.children
-            .as_mut()
-            .and_then(|children| children.get_mut(element))
-    }
-
-    fn print_tree_recursive(&self, prefix: &str, is_last: bool) {
+    /// Print the trie.
+    fn print_tree_recursive(
+        &self,
+        prefix: impl Display,
+        is_last: bool,
+        out_buffer: &mut impl Write,
+    ) {
         let current_prefix = if is_last {
             format!("{}└─ ", prefix)
         } else {
@@ -67,20 +66,29 @@ impl<T: Eq + std::hash::Hash + Clone + Copy + std::fmt::Display> Node<T> {
         };
         let child_prefix = format!("{}{}", prefix, if is_last { "    " } else { "│   " });
         if let Some(ref element) = self.element {
-            println!("{}{} (count: {})", current_prefix, element, self.count);
+            writeln!(
+                out_buffer,
+                "{}{}", // (count: {})",
+                current_prefix,
+                element //, self.count
+            )
+            .unwrap();
         }
         if let Some(ref children) = self.children {
             let sorted_children: Vec<(&T, &Node<T>)> = children.iter().collect();
             let len = sorted_children.len();
             for (index, child) in sorted_children.into_iter().enumerate() {
                 let is_last_child = index == len - 1;
-                child.1.print_tree_recursive(&child_prefix, is_last_child);
+                child
+                    .1
+                    .print_tree_recursive(&child_prefix, is_last_child, out_buffer);
             }
         }
     }
 
-    fn print_tree(&self) {
-        self.print_tree_recursive("", true);
+    /// Print the trie.
+    pub(crate) fn print_tree(&self, out_buffer: &mut impl Write) {
+        self.print_tree_recursive("", true, out_buffer);
     }
 }
 
@@ -88,12 +96,26 @@ impl<T: Eq + std::hash::Hash + Clone + Copy + std::fmt::Display> Node<T> {
 mod tests {
     use super::*;
 
+    /// Add utility fn to extract childs from nodes
+    impl<T: Eq + std::hash::Hash + Clone + Copy + std::fmt::Debug + std::fmt::Display> Node<T> {
+        fn get_child(&self, element: &T) -> Option<&Node<T>> {
+            self.children
+                .as_ref()
+                .and_then(|children| children.get(element))
+        }
+    }
+
     #[test]
-    fn test_trie() {
+    fn test_trie_numbers() {
         let mut root = Node::new();
         root.add_sentence(vec![1, 2, 3, 4]);
         root.add_sentence(vec![1, 2, 3, 5]);
         root.add_sentence(vec![1, 2, 4, 5]);
+        root.print_tree(&mut std::io::stdout());
+    }
+
+    #[test]
+    fn test_trie_text() {
         let mut root = Node::new();
         root.add_sentence("I like trains".split_ascii_whitespace());
         root.add_sentence("I like red potatoes".split_ascii_whitespace());
@@ -146,6 +168,6 @@ mod tests {
         root.add_sentence("I like green apples".split_ascii_whitespace());
         root.add_sentence("The quick brown fox jumps over the lazy dog".split_ascii_whitespace());
         root.add_sentence("The quick brown fox jumps over the lazy cat".split_ascii_whitespace());
-        root.print_tree();
+        root.print_tree(&mut std::io::stdout());
     }
 }

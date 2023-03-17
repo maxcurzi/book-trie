@@ -1,7 +1,25 @@
 use regex::Regex;
-/// Extracts words from a sentence which may be terminated by a full-stop
-pub(crate) fn extract_words(sentence: &str) -> std::str::SplitWhitespace<'_> {
-    sentence.trim_end_matches('.').split_whitespace()
+
+/// Extracts words from a sentence, excluding punctuation characters
+pub(crate) fn extract_words(sentence: & str) -> Vec<&str> {
+    let mut words = vec![];
+    let mut start_index = 0;
+    let mut in_word = false;
+    for (end_index, character) in sentence.char_indices() {
+        if character.is_alphanumeric() {
+            if !in_word {
+                start_index = end_index;
+                in_word = true;
+            }
+        } else if in_word {
+            words.push(&sentence[start_index..end_index]);
+            in_word = false;
+        }
+    }
+    if in_word {
+        words.push(&sentence[start_index..]);
+    }
+    words
 }
 
 /// Extract sentences from a text. Sentences are simply terminated by a full-stop.
@@ -20,10 +38,11 @@ mod tests {
     #[test]
     fn test_extract_words() {
         let sentence = "I like trains.";
-        let mut words = extract_words(sentence);
-        assert_eq!(words.next(), Some("I"));
-        assert_eq!(words.next(), Some("like"));
-        assert_eq!(words.next(), Some("trains"));
+        let words = extract_words(sentence);
+        let mut words_iter = words.iter();
+        assert_eq!(words_iter.next(), Some("I").as_ref());
+        assert_eq!(words_iter.next(), Some("like").as_ref());
+        assert_eq!(words_iter.next(), Some("trains").as_ref());
     }
 
     #[test]
@@ -49,7 +68,11 @@ Why does the lamb love Mary so? The eager children cry; Why, Mary loves the lamb
         );
         assert_eq!(
             sentences_iter.next().unwrap(),
-            &"Why does the lamb love Mary so? The eager children cry; Why, Mary loves the lamb, you know, The teacher did reply"
+            &"Why does the lamb love Mary so"
+        );
+        assert_eq!(
+            sentences_iter.next().unwrap(),
+            &"The eager children cry; Why, Mary loves the lamb, you know, The teacher did reply"
         );
     }
 
